@@ -18,7 +18,7 @@ const activeRooms = new Map();
 
 io.on("connection", (socket) => {
     console.log(`🔌 Connected: ${socket.id}`);
-
+    
     socket.on("joinRoom", (data) => {
         const { roomId } = data;
         socket.join(roomId);
@@ -35,7 +35,11 @@ io.on("connection", (socket) => {
             const roomId = crypto.randomUUID();
             console.log(`⚡ Creating Room ${roomId} for ${waitingPlayer.id} and ${socket.id}`);
 
-            activeRooms.set(roomId, { playerChoices: {} });
+            activeRooms.set(roomId, { 
+            playerChoices: {},
+            maxRounds: null, 
+            currentRound: 1  
+            });
 
             socket.join(roomId);
             waitingPlayer.join(roomId);
@@ -46,28 +50,7 @@ io.on("connection", (socket) => {
             waitingPlayer = null;
         }
     }); 
-
-    if (!rooms.has(roomId)) {
-      const targetMatchLength = Math.floor(Math.random() * 4) + 4; // 4 to 7 rounds
-      rooms.set(roomId, {
-        players: [socket.id],
-        totalRounds: targetMatchLength,
-        choices: {}
-      });
-    } else {
-      rooms.get(roomId).players.push(socket.id);
-    }
-
-    const roomData = rooms.get(roomId);
-
-
-
-    if (roomData.players.length === 2) {
-      io.to(roomId).emit("roomReady", { 
-        totalRounds: roomData.totalRounds 
-      });
-    }
-  });
+    
 
     socket.on("play", (data) => {
         const { roomId, action } = data;
@@ -76,15 +59,24 @@ io.on("connection", (socket) => {
         if (!room) return;
 
         room.playerChoices[socket.id] = action;
-        console.log(`📝 choice stored: [${socket.id}] -> ${action}`);
 
+        if (!room.maxRounds) {
+        const totalRounds = Math.floor(Math.random() * (10 - 5 + 1)) + 5;
+        room.maxRounds = totalRounds;
+        
+        console.log(`🎯 First action detected. Broadcast maxRounds: ${totalRounds}`);
+
+        io.to(roomId).emit("roomInitialized", { maxRounds: totalRounds });
+        }
+
+        console.log(`📝 choice stored: [${socket.id}] -> ${action}`);
 
         socket.to(roomId).emit("opponentLockedIn");
 
         const playersWhoActed = Object.keys(room.playerChoices);
         
         if (playersWhoActed.length === 2) {
-            console.log(`🔓 Both players acted in ${roomId}. Revealing payload.`);
+            console.log(` Both players acted in ${roomId}. Revealing payload.`);
             
             io.to(roomId).emit("revealChoices", {
                 choices: room.playerChoices
@@ -108,7 +100,7 @@ io.on("connection", (socket) => {
             }
         }
     });
-
+});
 
 server.listen(5000, () => {
     console.log("🚀 Realtime engine online on port 5000");
