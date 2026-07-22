@@ -22,6 +22,7 @@ io.on("connection", (socket) => {
     socket.on("joinRoom", (data) => {
         const { roomId } = data;
         socket.join(roomId);
+        socket.roomId = roomId;
         console.log(`📥 Player ${socket.id} checked into room: ${roomId}`);
     });
 
@@ -40,6 +41,9 @@ io.on("connection", (socket) => {
             maxRounds: null, 
             currentRound: 1  
             });
+
+            socket.roomId = roomId; // 👈 skeptical about this
+            waitingPlayer.roomId = roomId;
 
             socket.join(roomId);
             waitingPlayer.join(roomId);
@@ -86,19 +90,22 @@ io.on("connection", (socket) => {
         }
     });
 
+    socket.on("leaveRoom", ({ roomId }) => {
+    socket.leave(roomId);
+    socket.to(roomId).emit("opponentLeft");
+    });
+
     socket.on("disconnect", () => {
         console.log(`❌ Disconnected: ${socket.id}`);
         if (socket === waitingPlayer) {
             waitingPlayer = null;
         }
 
-        for (const [roomId, roomData] of activeRooms.entries()) {
-            if (roomData.playerChoices && Object.prototype.hasOwnProperty.call(roomData.playerChoices, socket.id)) {
-                socket.to(roomId).emit("opponentDisconnected");
-                activeRooms.delete(roomId);
-                break;
-            }
+        if (socket.roomId) {
+            io.to(socket.roomId).emit("opponentLeft");
+            activeRooms.delete(socket.roomId);
         }
+
     });
 });
 
