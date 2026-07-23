@@ -42,14 +42,11 @@ io.on("connection", (socket) => {
             currentRound: 1  
             });
 
-            socket.roomId = roomId; // 👈 skeptical about this
-            waitingPlayer.roomId = roomId;
-
             socket.join(roomId);
             waitingPlayer.join(roomId);
 
-            waitingPlayer.emit("matchFound", { roomId, opponentId: socket.id });
-            socket.emit("matchFound", { roomId, opponentId: waitingPlayer.id });
+            waitingPlayer.emit("matchFound", { roomId,  });
+            socket.emit("matchFound", { roomId,  });
 
             waitingPlayer = null;
         }
